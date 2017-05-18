@@ -1,0 +1,524 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<title>Regex class - Enhanced regex functions</title>
+<style>
+h1, h2
+   {
+   	text-decoration		:  underline ;
+    }
+    
+.level1
+   {
+   	margin-left		:  32px ;
+    }
+    
+.level2
+   {
+   	margin-left		:  32px ;
+    }
+    
+.function
+   {
+   	margin			:  0px ;
+   	padding			:  3px 6px ;
+   	border			:  1px solid black ;
+   	font-family		:  "Courier New", "Lucida Console" ;
+   	font-weight		:  bold ;
+   	display			:  inline-block ;
+   	margin-bottom		:  8px ;
+   	font-size		:  12px ;
+   	color			:  #0000FF ;
+    }
+    
+.code
+   {
+   	padding			:  3px 6px ;
+   	margin-left		:  32px ;
+   	margin-top		:  8px ;
+   	border			:  1px solid #808080 ;
+   	font-family		:  "Courier New", "Lucida Console" ;
+   	font-weight		:  bold ;
+   	margin-bottom		:  8px ;
+   	font-size		:  11px ;
+    }
+</style>
+</head>
+<body>
+
+	<h1>INTRODUCTION</h1>
+
+	<div class="level1">
+	The Regex class provides static methods that encapsulate normal php regex functions (preg_*).<br />
+	It is intended to provide additional functionalities such as :<br />
+	<ul>
+		<li>Matching filenames using an Msdos/Unix-style convention (eg, "*.txt")</li>
+		<li>Developing wildcard expressions ; for example, the expression "file[1-3].txt" could yield to an array containing : 
+			[ "file1.txt", "file2.txt", "file3.txt" ]</li>
+		<li>Using preg matching functions and be able to specify several times the same named group captures</li>
+		<li>Using a meta-regular expression and a set of individual regular expressions to match  sequences of lines</li>
+	</ul>
+	</div>
+
+	<h1>METHODS</h1>
+
+	<div class="level1">
+		<h2>Msdos/Unix-style wildcards</h2>
+
+		<div class="level2">
+			<div class="function">Regex::Matches ( $file, $pattern, $case_sensitive = false )</div><br />
+
+			Checks if a filename corresponds to a wildcard mask.<br />
+
+			The authorized wildcards are the following :<br />
+			<ul>
+				<li>"?" : represents zero or one character, excepted the path delimiter. </li>
+				<li>"*" : represents zero or more characters, excepted the path delimiter.</li>
+				<li>
+					A character class : represents a range of characters. For example, "[A-Z]" means "all uppercase letters", 
+					while "[^a-z]" means "anything but lowercase letters". For the moment, only alphanumeric character classes
+					are authorized.
+				</li>
+			</ul>
+
+			Returns <i>true</i> if <b>$pattern</b> matches <b>$file</b>, <i>false</i> otherwise.<br />
+			<br /><br />
+			
+			<div class="function">WildcardToRegex ( $pattern, $escaped_chars = "" )</div><br />
+
+			Converts an msdos/unix-style wildcard to a regular expression.
+		</div>
+
+		<h2>Regular expressions</h2>
+
+		<div class="level2">
+			<div class="function">
+				MetaPregMatchEx ( $sequence, $regex_list, $subject_array, &$matches = null, $flags = 0, $match_all = false, $missing_matches = [] )
+			</div>
+			<br />
+
+			A meta-matching artefact for regular expressions.<br />
+
+			Suppose you have to scan a sequence of lines, such as in a log file. You want to recognize which sequence corresponds to which pattern. <br />
+
+			A sequence in an example log file could be, for example :<br />
+
+			<ul>
+				<li>A line containing "message start"</li>
+				<li>Any number of lines starting with "log:" and followed by any sequence of characters</li>
+				<li>A line containing "message end"</li>
+			</ul>
+
+			The following listing gives an example layout of such a log file :<br />
+
+			<div class="code">
+				 message start<br />
+				 log: message 1<br />
+				 log: message 2<br />
+				 ...<br />
+				 log: message n<br />
+				 message end<br />
+			</div>
+			<br />
+			The purpose is to check whether a sequence of lines would match this scheme ; a set of regular expressions 
+			would be first needeed to match every particular line in a sequence :<br />
+
+			<div class="code">
+				 $regex_list =
+				    [
+	 					'1' => '/message start/',
+	 					'2' => 'log: \s* (?P<logmessage> .*),
+	 					'3' => '/message end/'
+				     ] ;
+			</div>
+			<br />
+
+			Then, to match a set of lines containing <code>'message start'</code>, having an unlimited number of lines starting with 
+			<code>'log:'</code>, 
+			then ending with a line containing <code>'message end'</code>, you would have to provide a regular expression using a 
+			backreference-style syntax referencing the keys of our $regex_list array, which would give :<br />
+
+			<div class="code">
+				 $sequence	=  '\1 \2* \3' ;
+			</div>
+			<br />
+
+			meaning :
+
+			<ul>
+				<li>The first line must be the one identified by <code>'\1'</code>, ie <code>'message start'</code></li>
+				<li>There can be any number of lines identified by <code>'\2'</code>, ie starting with <code>'log:'</code></li>
+				<li>The last line must be <code>'message end'</code></li>
+			</ul>
+
+			Note that each <b>$regex_list</b> item is a regular expression which can contain group captures, either named or not.<br />
+			If it does not contain re delimiters, then <code>'/ /imsx'</code> is assumed, so do not forget that spaces will not be significant.<br />
+			<br />
+			Thus, checking if a set of lines (in an array) matches the regular expressions specified in <b>$sequence</b> and defined in 
+			<b>$regex_list</b>, a simple call will be enough :<br />
+	 
+			<div class="code">
+				 $status = Regex::MetaPregMatchEx ( $sequence, $regex_list, $lines ) ;
+			</div>
+			<br />
+
+			In this method, the <b>$sequence</b> parameter is a regular expression containing preg backreference-style constructs that	
+			refer to array keys in the <b>$regex_list</b> array.<br /><br />
+
+			The following preg-style backreferences are supported ('x' stands for a sequence of digits, 'name' for a group capture name) :
+
+			<code>
+			<ul>
+				<li>\x</li>
+				<li>\gx</li>
+				<li>\g{x}</li>
+				<li>(?P=name)</li>
+				<li>\k&lt;name&gt;</li>
+				<li>\k'name'</li>
+				<li>\k{name}</li>
+				<li>\g{name}</li>
+			</ul>
+			</code>
+
+			The <b>$regex_list</b> parameter is an associative array whose keys are backreference ids 
+			(either the 'x' or the 'name' string described in the <b>$sequence</b> parameter help) and whose values are regular expressions.<br />
+
+			Each entry is meant to match one or more lines of a sequence of lines.<br />
+
+			If no delimiter encloses the regex, then a default delimiter '/' will be used, and the 'imsx' -preg options will be 
+			automatically added before performing the match.<br />
+
+			The <b>$subject_array</b> parameter is an array of input lines to be matched against the specified sequence.<br />
+
+			The <b>$matches</b> parameter is a reference to an array which will receive the individual matches.<br />
+
+			Each entry is an associative array having the following keys :<br />
+
+			<ul>
+				<li><code>'reference'</code> : the original string reference.</li>
+				<li><code>'regex'</code> : the regex that matched the line.</li>
+				<li><code>'matches'</code> : array of matches. Note that since the method uses PregMatchEx(), 
+					an additional level of indirection is added with regards to self::PregMatch, since several captures 
+					can have the same name.</li>
+			</ul>
+
+			<b>$flags</b> is a combination of PREG_* constants.<br />
+
+			<b>$missing_matches</b>, if specified, will receive the indexes of the non-matching lines.<br />
+			<br />
+			The function will return <i>true</i> if the specified lines match the sequence, and <i>false</i> otherwise.<br />
+			<br />
+
+			<div class="function">
+				Regex::PregMatch ( $pattern, $subject, &$matches = null, $flags = 0, $offset = 0 )
+			</div>
+			<br />
+
+			Encapsulates the <code>preg_match()</code> function and optionnally wipes unnamed captures from the returned <b>$matches</b> array if 
+			the custom <code>PREG_WIPE_MATCHES</code> flag is specified.<br /><br />
+
+			<div class="function">
+				Regex::PregMatch ( $pattern, $subject, &$matches = null, $flags = 0, $offset = 0 )
+			</div>
+			<br />
+
+			Encapsulates the <code>preg_match_all()</code> function and optionnally wipes unnamed captures from the returned 
+			<b>$matches</b> array if the custom <code>PREG_WIPE_MATCHES</code> flag is specified.<br /><br />
+
+			<div class="function">
+				Regex::PregReplace ( $pattern, $replacement, $subject, $limit = -1, $count = null )
+			</div>
+			<br />
+
+			Encapsulates the <code>preg_replace()</code> function.<br /><br />
+
+			<div class="function">
+				Regex::PregMatchEx ( $pattern, $subject, &$matches = null, $flags = 0, $offset = 0 )
+			</div>
+			<br />
+
+			An extended version of <code>Regex::PregMatch()</code> that allows for specifying multiple named captures of the same name.<br />
+			<br />
+			The <b>$matches</b> array will hold the captured groups. Since named captures of the same name can be specified more than once, 
+			each array item will contain an additional level of indirection : an array for each matched item.<br /><br />
+
+			Thus, the elements of a capture group named <code>&lt;pattern&gt;</code> will be accessible through the following expressions :<br />
+
+			<ul>
+				<li><code>$matches [ 'pattern' ] [0]</code> will yield to the first expression matched by the named capture <i>"pattern"</i></li>
+				<li><code>count ( $matches [ 'pattern' ] )</code> will give the number of expressions matched by the named capture <i>"pattern"</i></li>
+			</ul>
+			<br />
+
+			<div class="function">
+				Regex::PregMatchAllEx ( $pattern, $subject, &$matches = null, $flags = 0, $offset = 0 )
+			</div>
+			<br />
+
+			An extended version of <code>Regex::PregMatchAll()</code> that allows for specifying multiple named captures of the same name.<br />
+ 
+			Empty subarrays or subarrays having an offset of -1 will be removed from the resulting matches.<br />
+
+			<div class="function">
+				Regex::PregStrReplace ( $pattern, $replacement, $subject, $limit = -1, $count = null ) ;
+			</div>
+			<br />
+
+			This function behaves like a mix of str_replace() and preg_replace() ; it allows to search for strings
+			using regular expressions, but the replacements are plain-text strings and no reference to a capture
+			specified in the regular expression will be interpreted.<br/>
+			This is useful when processing replacement strings that contain constructs such as "\00" or "$", which
+			are interpreted by preg_replace() as references to captures.
+			<br /><br />
+
+			This function has the same parameters as preg_replace().
+
+		</div>
+
+		<h2>Expression development</h2>
+
+		<div class="level2">
+
+			<div class="function">
+				Regex::DevelopExpression ( $expression, $limit = 10000 )
+			</div>
+			<br />
+
+			Expands a factorized string expression.<br /><br />
+
+			Sometimes, it is necessary to represent a set of values with a factorized expression,
+			such as the shell allows us to match a set of files using a pattern.<br />
+
+			This method processes input strings that contains character classes and generates an array of values that represent all the 
+			possible combinations. For example :<br />
+
+			<div class="code">
+			    "file[a-c].txt"
+			</div>
+			<br />
+
+			will expand to the following array of strings :<br />
+
+			<div class="code">
+			    [ "filea.txt", "fileb.txt", filec.txt" ]
+			</div>
+			<br />
+
+			Currently, character classes can only be alphabetic or alphanumeric, such as is the following example :<br />
+
+			<div class="code">
+			    "file[a-b][0-1]"
+			</div>
+			<br />
+
+			which will expand to :<br />
+
+			<div class="code">
+			    [ "filea0", "filea1", "fileb0", "fileb1" ]
+			</div>
+			<br />
+
+			Numeric values can be zero-padded, using an optional integer width preceded by a slash, like in the following example :<br />
+
+			<div class="code">
+			    "file[0-1]/4"
+			</div>
+			<br />
+
+			which will expand to :<br />
+
+			<div class="code">
+				[ "file0000", "file0001" ]
+			</div>
+			<br />
+
+			For alphabetic character classes, the case of the first character determines the case of the expanded result ; for example :<br />
+
+			<div class="code">
+			    "file[A-c]"
+			</div>
+			<br />
+
+			will give :<br />
+
+			<div class="code">
+			    [ "fileA", "fileB", "fileC" ]
+			</div>
+			<br />
+
+			Finally, angle brackets can be escaped using the backslash character.<br />
+
+			The <b>$limit</b> parameter is set to an arbitrary value of 10000 to limit the number of results returned.<br /><br />
+		</div>
+
+		<h2>Various methods</h2>
+
+		<div class="level2">
+
+			<div class="function">
+				Regex::CombinationsOf ( $array, $limit )
+			</div>
+			<br />
+
+			Takes an array containing values and nested arrays, and generates all the possible combinations, each nested array providing 
+			alternatives for the generation.<br />
+
+			For example, the following input array :<br />
+
+			<div class="code">
+				[ [ 'a', 'b' ], 1, 2, [ 'x', 'y', 'z' ] ]
+			</div>
+			<br />
+			will generate the following results ;<br />
+
+			<div class="code">
+				[<br />
+				<div style="padding-left:32px">
+	 				[0] => [ 'a', 1, 2, 'x' ] <br />
+	 				[1] => [ 'b', 1, 2, 'x' ] <br />
+	 				[2] => [ 'a', 1, 2, 'y' ] <br />
+	 				[3] => [ 'b', 1, 2, 'y' ] <br />
+	 				[4] => [ 'a', 1, 2, 'z' ] <br />
+	 				[5] => [ 'b', 1, 2, 'z' ] <br />
+				</div>
+	 			]
+			</div>
+			<br />
+
+			Note that the combination generation is computed from left to right, and that only one level of nesting is allowed.<br />
+
+			The <b>$limit</b> parameter is set to an arbitrary value of 10000 to limit the number of results returned.<br /><br />
+
+			<div class="function">
+				Regex::IsRegex ( $expression )
+			</div>
+			<br />
+
+			Checks if the specified expression is a valid regular expression.<br />
+
+			The <b>$delimiter</b> parameter indicates the delimiter character that is to be used for the regular expression. 
+			If not specified, the delimiter character will be taken from the first character of the specified regular expression.<br /><br />
+
+			<code>IsRegex</code> returns <i>true</i> if <b>$expression</b> is a valid regular expression, and <i>false</i> otherwise.
+
+			Note that the PCRE package allows for regular expressions to be delimited by the following symmetric characters : 
+			[], {}, <> and (). The <code>IsRegex</code> method behaves the same way.<br /><br />
+
+			<div class="function">
+				Regex::MultiSubstrReplace ( $subject, $replacements )
+			</div>
+			<br />
+
+			Performs multiple substring replacements within the same string.<br />
+
+			<b>$subject</b> is the string to be processed. <b>$replacements</b> is an array of arrays containing 3 elements :
+
+			<ul>
+				<li>The string to be replaced in <b>$subject</b></li>
+				<li>The replacement string</li>
+				<li>The offset, in $subject, of the string to be replaced</li>
+			</ul>
+
+			This function can be used with an array based on a match list returned by the <code>preg_match_all()</code> function. 
+			Internally, this function is used by the <code>NormalizeMetaSequence()</code> and <code>RenumberNamedCaptures()</code> methods.
+			<br /><br />
+		</div>
+
+		<h2>Internal methods</h2>
+
+		<div class="level2">
+
+			This section lists methods that are used internally by the Regex class, but are made public in case of...<br /><br />
+
+			<div class="function">
+				Regex::GroupNamedCaptures ( $match, $replacements )
+			</div>
+			<br />
+
+			Used by the Regex::Preg*Ex methods.<br />
+			Once capture groups have been renamed by the <code>Regex::RenumberNamedCaptures()</code> method to ensure unique capture names, 
+			this function is called to rename back the matched elements returned by the <code>preg_*</code> functions in order to regroup 
+			named captures together, using their original names.<br />
+			<br />
+			The <b>$match</b> parameter is returned by one of the <code>preg_*</code> functions.<br />
+			<b>$replacements</b> is an associative array returned by the <code>Regex::RenumberNamedCaptures()</code>, 
+			whose keys are the computed unique capture group names, and values are the original capture names 
+			(which can be present several times in the original regular expression).<br /><br />
+
+			<div class="function">
+				Regex::NormalizeMetaSequence ( $sequence, $subsequences = null )
+			</div>
+			<br />
+
+			Normalizes a meta-sequence, which uses preg-like backreference syntax to reference regular expressions indexed by the 
+			backreference value in the $match_definitions array.<br />
+
+			The method accepts all the backreference syntaxes that are recognized by the preg_replace function 
+			('x' stands for a sequence of digits, 'name' for a group capture name) :<br />
+
+			<ul>
+				<li>\x</li>
+				<li>\gx</li>
+				<li>\g{x}</li>
+				<li>(?P=name)</li>
+				<li>\k&lt;name&gt;</li>
+				<li>\k'name'</li>
+				<li>\k{name}</li>
+				<li>\g{name}</li>
+			</ul>
+
+			All those forms are normalized in the input sequence as *(\x)* or *(\name)* 
+			(note the enclosing parentheses to prevent side effects when performing the match).<br /><br />
+
+			<div class="function">
+				Regex::PregWipeMatches ( &$matches, $flags )
+			</div>
+			<br />
+
+			Removes unnamed captures from the result of a call to a <code>preg_*</code> function.<br />
+
+			The <b>$flags</b> parameter is the one supplied to a preg_match...() function ; 
+			This is used to determine wether the <code>PREG_OFFSET_CAPTURE</code> flag has been specified. 
+			If yes, the two-elements arrays returned in <b>$matches</b> may be either an empty string, or an array where 
+			the second element (the offset) is -1. In this case, all the two-element arrays will be removed from the result. <br /><br />
+
+			<div class="function">
+				Regex::RenumberNamedCaptures ( $pattern, &$correspondances = [], $prefix = 'match_' )
+			</div>
+			<br />
+
+			Reassigns unique identifiers to named captures within a regular expression. <br />
+			The new identifiers will have the form <code>"prefix_x"</code>, where <code>"prefix"</code> is given by the 
+			<b>$prefix</b> parameter, and <code>"x"</code> a unique identifier starting from 0.<br />
+
+			On output, the <b>$correspondances</b> array will hold an associative array whose keys are the new capture group names, 
+			and values the old ones.<br /><br />
+
+			<div class="function">
+				Regex::ReplaceNamedPatterns ( $pattern, $subject, $replacements, $options = null )
+			</div>
+			<br />
+
+			Replace named patterns in a string. This function uses the result of <code>self::PregMatchAll()</code> to match 
+			named patterns with the supplied input array <b>$replacements</b>.<br /><br />
+
+			<b>$pattern</b> is a pattern matching subpart(s) of the specified subject string.<br />
+			<b>$subject</b> is the string to be matched against.<br />
+			<b>$replacements</b> is an associative array whose keys are the pattern name 
+			(as specified in the(?P&lt;name&gt; re) parts of a regular expression) and whose values are also an associative array. <br /><br />
+
+			Each entry in the array have the following meaning :<br />
+
+			<ul>
+				<li><code>key</code> : A regular expression specifying the value of the named pattern name. 
+				Do not put anchors nor delimiters in this pattern since they are automatically added.</li>
+				<li><code>value</code> : The replacement value for the named pattern specified by the key value.</li>
+			</ul>
+			<br />
+
+			<b>$options</b> is a combination of <code>PREG_*</code> flags.
+		</div>
+	</div>
+
+</body>
+</html>
